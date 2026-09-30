@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LLM_PROVIDER=${LLM_PROVIDER:-google}
+      - LLM_API_KEY=${LLM_API_KEY:-mock_key}
+      - LLM_MODEL=${LLM_MODEL:-gemini-2.5-flash}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+      - VECTOR_DB_PATH=data/vectorstore
+      - DOCUMENTS_PATH=data/documents
+    volumes:
+      - ./data/documents:/app/data/documents
+      - ./data/vectorstore:/app/data/vectorstore
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag_frontend
+    command: streamlit run streamlit/app.py --server.address=0.0.0.0 --server.port=8501
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
